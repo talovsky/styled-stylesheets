@@ -14,7 +14,43 @@ export function styledStylesheets(options: StyledStylesheetsOptions = {}): Plugi
 	const { importSource = "styled-stylesheets" } = options;
 
 	const cssModules = new Map<string, string>();
+	const cssModuleImportIds = new Map<string, string>();
+	const sourceCssIds = new Map<string, Set<string>>();
 	let server: ViteDevServer | undefined;
+
+	function invalidateCssModule(id: string) {
+		if (!server) return;
+		for (const mod of server.moduleGraph.getModulesByFile(id) ?? []) {
+			server.moduleGraph.invalidateModule(mod);
+		}
+
+		const mod = server.moduleGraph.getModuleById(id);
+		if (mod) server.moduleGraph.invalidateModule(mod);
+	}
+
+	function cleanupCssModulesForSource(sourceId: string, nextCssIds = new Set<string>()) {
+		const previousCssIds = sourceCssIds.get(sourceId);
+		if (!previousCssIds) {
+			if (nextCssIds.size > 0) sourceCssIds.set(sourceId, new Set(nextCssIds));
+			return;
+		}
+
+		for (const cssId of previousCssIds) {
+			if (nextCssIds.has(cssId)) continue;
+
+			const importId = cssModuleImportIds.get(cssId);
+			cssModules.delete(cssId);
+			cssModuleImportIds.delete(cssId);
+			invalidateCssModule(cssId);
+			if (importId) invalidateCssModule(importId);
+		}
+
+		if (nextCssIds.size > 0) {
+			sourceCssIds.set(sourceId, new Set(nextCssIds));
+		} else {
+			sourceCssIds.delete(sourceId);
+		}
+	}
 
 	return {
 		name: "styled-stylesheets",
@@ -37,41 +73,62 @@ export function styledStylesheets(options: StyledStylesheetsOptions = {}): Plugi
 			const id = rawId.split("?")[0];
 			if (/node_modules/.test(id)) return;
 			if (!/\.[cm]?[jt]sx?$/.test(id)) return;
-			if (!code.includes("stylesheet")) return;
-			if (!hasImportSource(code, importSource)) return;
+			if (!code.includes("stylesheet")) {
+				cleanupCssModulesForSource(id);
+				return;
+			}
+			if (!hasImportSource(code, importSource)) {
+				cleanupCssModulesForSource(id);
+				return;
+			}
 
 			const sourceFile = ts.createSourceFile(id, code, ts.ScriptTarget.Latest, true, scriptKindFor(id));
 
 			const importInfo = findStyledStylesheetsImport(sourceFile, importSource);
-			if (!importInfo) return;
+			if (!importInfo) {
+				cleanupCssModulesForSource(id);
+				return;
+			}
 
 			const localNames = collectLocalNames(importInfo.specifiers);
-			if (localNames.size === 0) return;
+			if (localNames.size === 0) {
+				cleanupCssModulesForSource(id);
+				return;
+			}
 
 			const tags = findStylesheetTags(sourceFile, localNames);
-			if (tags.length === 0) return;
+			if (tags.length === 0) {
+				cleanupCssModulesForSource(id);
+				return;
+			}
 
 			const magicCode = new MagicString(code);
 			const fileHash = djb2(id);
+			const nextCssIds = new Set<string>();
 
 			for (const [index, tag] of tags.entries()) {
 				if (tag.hasExpressions) {
 					this.error("[styled-stylesheets] stylesheet tag does not support interpolations.", tag.start);
 				}
 
+				const css = stripLineComments(tag.css).trim();
 				const cssId = `__styled-stylesheets:${fileHash}-${index}.module.css`;
+				const importId = `${cssId}?ss=${djb2(css)}`;
+				nextCssIds.add(cssId);
 
 				if (cssModules.has(cssId) && server) {
-					for (const mod of server.moduleGraph.getModulesByFile(cssId) ?? []) {
-						server.moduleGraph.invalidateModule(mod);
-					}
+					invalidateCssModule(cssId);
+					const previousImportId = cssModuleImportIds.get(cssId);
+					if (previousImportId) invalidateCssModule(previousImportId);
 				}
 
-				cssModules.set(cssId, stripLineComments(tag.css).trim());
-				magicCode.append(`\nimport _at${index} from "${cssId}";`);
+				cssModules.set(cssId, css);
+				cssModuleImportIds.set(cssId, importId);
+				magicCode.append(`\nimport _at${index} from "${importId}";`);
 				magicCode.update(tag.start, tag.end, `_at${index}`);
 			}
 
+			cleanupCssModulesForSource(id, nextCssIds);
 			magicCode.remove(importInfo.start, importInfo.end);
 
 			return {
@@ -97,31 +154,30 @@ interface StylesheetTag {
 
 function findStyledStylesheetsImport(sourceFile: ts.SourceFile, importSource: string): ImportInfo | null {
 	for (const node of sourceFile.statements) {
-		if (!ts.isImportDeclaration(node)) continue;
-		if (!ts.isStringLiteral(node.moduleSpecifier)) continue;
-		if (node.moduleSpecifier.text !== importSource) continue;
+		if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === importSource) {
+			const specifiers = new Map<string, "default" | "stylesheet">();
+			if (node.importClause?.name) {
+				specifiers.set(node.importClause.name.text, "default");
+			}
 
-		const specifiers = new Map<string, "default" | "stylesheet">();
-		if (node.importClause?.name) {
-			specifiers.set(node.importClause.name.text, "default");
-		}
-
-		const namedBindings = node.importClause?.namedBindings;
-		if (namedBindings && ts.isNamedImports(namedBindings)) {
-			for (const specifier of namedBindings.elements) {
-				if (specifier.isTypeOnly) continue;
-				const imported = (specifier.propertyName ?? specifier.name).text;
-				if (imported === "stylesheet") {
-					specifiers.set(specifier.name.text, "stylesheet");
+			const namedBindings = node.importClause?.namedBindings;
+			if (namedBindings && ts.isNamedImports(namedBindings)) {
+				for (const specifier of namedBindings.elements) {
+					if (!specifier.isTypeOnly) {
+						const imported = (specifier.propertyName ?? specifier.name).text;
+						if (imported === "stylesheet") {
+							specifiers.set(specifier.name.text, "stylesheet");
+						}
+					}
 				}
 			}
-		}
 
-		return {
-			start: node.getStart(sourceFile),
-			end: node.getEnd(),
-			specifiers
-		};
+			return {
+				start: node.getStart(sourceFile),
+				end: node.getEnd(),
+				specifiers
+			};
+		}
 	}
 	return null;
 }
