@@ -1,0 +1,91 @@
+{
+	"name": "@styled-stylesheets/vscode",
+	"displayName": "Styled Stylesheets",
+	"version": "0.0.1",
+	"description": "Syntax highlighting and IntelliSense for styled-stylesheets",
+	"categories": [
+		"Programming Languages"
+	],
+	"homepage": "https://github.com/talovsky/styled-stylesheets#readme",
+	"bugs": {
+		"url": "https://github.com/talovsky/styled-stylesheets/issues"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/talovsky/styled-stylesheets.git"
+	},
+	"publisher": "talovsky",
+	"main": "dist/extension.js",
+	"scripts": {
+		"compile": "node ./build.mjs",
+		"watch": "node ./build.mjs --watch",
+		"vscode:prepublish": "node ./build.mjs --production",
+		"format": "prettier --write '**/*.{js,ts,md,json,css}'"
+	},
+	"dependencies": {
+		"vscode-css-languageservice": "^6.2.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"@types/vscode": "^1.73.0",
+		"esbuild": "^0.24.0",
+		"typescript": "^5.0.0"
+	},
+	"contributes": {
+		"grammars": [
+			{
+				"injectTo": [
+					"source.js",
+					"source.ts",
+					"source.jsx",
+					"source.js.jsx",
+					"source.tsx",
+					"source.vue",
+					"source.svelte"
+				],
+				"scopeName": "inline.styled-stylesheets",
+				"path": "./syntaxes/styled-stylesheets.json",
+				"embeddedLanguages": {
+					"source.css": "css"
+				}
+			}
+		],
+		"commands": [
+			{
+				"command": "extension.insertColonOrSemiColon",
+				"title": "Fix Colon and Semicolon"
+			},
+			{
+				"command": "extension.insertStylesheetNewline",
+				"title": "Insert Stylesheet Newline"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "extension.insertColonOrSemiColon",
+				"key": "enter",
+				"when": "suggestWidgetVisible && textInputFocus && editorLangId =~ /javascript|typescript|javascriptreact|typescriptreact/ && config.editor.acceptSuggestionOnEnter != 'off'"
+			},
+			{
+				"command": "extension.insertStylesheetNewline",
+				"key": "enter",
+				"when": "!suggestWidgetVisible && textInputFocus && editorLangId =~ /javascript|typescript|javascriptreact|typescriptreact/"
+			}
+		]
+	},
+	"activationEvents": [
+		"onLanguage:javascript",
+		"onLanguage:javascriptreact",
+		"onLanguage:typescript",
+		"onLanguage:typescriptreact"
+	],
+	"icon": "logo.png",
+	"galleryBanner": {
+		"color": "#73CEA8",
+		"theme": "light"
+	},
+	"engines": {
+		"vscode": "^1.73.0"
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"oxc.enable": true,
+	"[typescript]": {
+		"editor.defaultFormatter": "oxc.oxc-vscode",
+		"editor.formatOnSave": true
+	},
+	"stylelint.validate": ["css", "postcss", "typescriptreact"],
+	"stylelint.workingDirectories": [{ "directory": "packages/wyrd", "changeProcessCWD": true }]
+}

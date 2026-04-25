@@ -1,0 +1,164 @@
+{
+	"injectionSelector": "L:source.js -comment -string, L:source.jsx -comment -string, L:source.ts -comment -string, L:source.tsx -comment -string",
+	"scopeName": "inline.styled-stylesheets",
+	"patterns": [
+		{
+			"name": "meta.tagged-template.stylesheet.js",
+			"contentName": "meta.embedded.block.css source.css",
+			"begin": "\\b(stylesheet)(\\s*<[^`>]*(?:>[^`<]*)?>)?\\s*(`)",
+			"beginCaptures": {
+				"1": {
+					"name": "entity.name.function.tagged-template.js"
+				},
+				"2": {
+					"patterns": [
+						{
+							"include": "source.ts#type-parameters"
+						}
+					]
+				},
+				"3": {
+					"name": "punctuation.definition.string.template.begin.js string.template.js"
+				}
+			},
+			"end": "(`)",
+			"endCaptures": {
+				"1": {
+					"name": "punctuation.definition.string.template.end.js string.template.js"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#stylesheet"
+				}
+			]
+		}
+	],
+	"repository": {
+		"stylesheet": {
+			"patterns": [
+				{
+					"include": "source.css"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#strings"
+				},
+				{
+					"include": "#selectors"
+				},
+				{
+					"include": "#properties"
+				},
+				{
+					"include": "#values"
+				},
+				{
+					"include": "#punctuation"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.block.css",
+					"begin": "/\\*",
+					"end": "\\*/"
+				},
+				{
+					"name": "comment.line.double-slash.css",
+					"match": "//.*$"
+				}
+			]
+		},
+		"strings": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.css",
+					"match": "\"(?:\\\\.|[^\"\\\\])*\""
+				},
+				{
+					"name": "string.quoted.single.css",
+					"match": "'(?:\\\\.|[^'\\\\])*'"
+				}
+			]
+		},
+		"selectors": {
+			"patterns": [
+				{
+					"name": "keyword.control.at-rule.css",
+					"match": "@[-_a-zA-Z][-_a-zA-Z0-9]*"
+				},
+				{
+					"name": "entity.other.attribute-name.class.css",
+					"match": "\\.-?[_a-zA-Z][_a-zA-Z0-9-]*\\b"
+				},
+				{
+					"name": "entity.other.attribute-name.id.css",
+					"match": "#-?[_a-zA-Z][_a-zA-Z0-9-]*\\b"
+				},
+				{
+					"name": "entity.other.attribute-name.pseudo-class.css",
+					"match": ":{1,2}[-_a-zA-Z][-_a-zA-Z0-9]*(?:\\([^)]*\\))?"
+				},
+				{
+					"name": "entity.name.tag.css",
+					"match": "\\b[a-zA-Z][-_a-zA-Z0-9]*\\b(?=\\s*(?:[.#:{,>+~]|$))"
+				}
+			]
+		},
+		"properties": {
+			"patterns": [
+				{
+					"name": "variable.other.custom-property.css",
+					"match": "--[-_a-zA-Z0-9]+"
+				},
+				{
+					"match": "([-_a-zA-Z][-_a-zA-Z0-9]*)(\\s*)(:)",
+					"captures": {
+						"1": {
+							"name": "support.type.property-name.css"
+						},
+						"3": {
+							"name": "punctuation.separator.key-value.css"
+						}
+					}
+				}
+			]
+		},
+		"values": {
+			"patterns": [
+				{
+					"name": "constant.other.color.rgb-value.css",
+					"match": "#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b"
+				},
+				{
+					"name": "constant.numeric.css",
+					"match": "\\b-?(?:\\d+|\\d*\\.\\d+)(?:%|[a-zA-Z]+)?\\b"
+				},
+				{
+					"name": "support.function.css",
+					"match": "\\b[-_a-zA-Z][-_a-zA-Z0-9]*(?=\\()"
+				}
+			]
+		},
+		"punctuation": {
+			"patterns": [
+				{
+					"name": "punctuation.section.property-list.css",
+					"match": "[{}]"
+				},
+				{
+					"name": "punctuation.terminator.rule.css",
+					"match": ";"
+				},
+				{
+					"name": "keyword.operator.combinator.css",
+					"match": "[&>+~]"
+				}
+			]
+		}
+	}
+}

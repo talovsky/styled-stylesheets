@@ -1,0 +1,58 @@
+{
+	"name": "styled-stylesheets",
+	"version": "0.0.1",
+	"description": "CSS Modules with colocation",
+	"homepage": "https://github.com/talovsky/styled-stylesheets#readme",
+	"bugs": {
+		"url": "https://github.com/talovsky/styled-stylesheets/issues"
+	},
+	"license": "MIT",
+	"author": "Nika Talovsky",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/talovsky/styled-stylesheets.git"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"main": "dist/index.cjs",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		},
+		"./vite": {
+			"types": "./dist/vite.d.ts",
+			"import": "./dist/vite.js",
+			"require": "./dist/vite.cjs"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts src/vite.ts --format esm,cjs --dts",
+		"dev": "tsup src/index.ts src/vite.ts --format esm,cjs --dts --watch",
+		"lint": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"dependencies": {
+		"acorn-walk": "^8.3.4",
+		"magic-string": "^0.30.14",
+		"typescript": "^5.0.0"
+	},
+	"devDependencies": {
+		"@types/estree": "^1.0.6",
+		"@types/node": "^22.0.0",
+		"acorn": "^8.14.0",
+		"tsup": "^8.3.5",
+		"vite": "^7.0.4",
+		"vitest": "^3.0.0"
+	},
+	"peerDependencies": {
+		"vite": ">=4.0.0"
+	}
+}

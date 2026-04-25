@@ -1,0 +1,48 @@
+{
+	"name": "@styled-stylesheets/postcss",
+	"version": "0.0.1",
+	"description": "PostCSS syntax for styled-stylesheets stylesheet templates",
+	"homepage": "https://github.com/talovsky/styled-stylesheets#readme",
+	"bugs": {
+		"url": "https://github.com/talovsky/styled-stylesheets/issues"
+	},
+	"license": "MIT",
+	"author": "Nika Talovsky",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/talovsky/styled-stylesheets.git"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"main": "dist/index.cjs",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm,cjs --dts",
+		"lint": "tsc --noEmit",
+		"test": "pnpm build && node --test test/*.test.cjs"
+	},
+	"dependencies": {
+		"typescript": "^5.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"postcss": "^8.5.1",
+		"tsup": "^8.5.1"
+	},
+	"peerDependencies": {
+		"postcss": "^8.5.1"
+	},
+	"engines": {
+		"node": ">=18"
+	}
+}
