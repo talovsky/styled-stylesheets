@@ -1,6 +1,6 @@
 import MagicString from "magic-string";
 import * as ts from "typescript";
-import type { Plugin, ViteDevServer } from "vite";
+import { normalizePath, type Plugin, type ViteDevServer } from "vite";
 
 export interface StyledStylesheetsOptions {
 	/**
@@ -58,6 +58,9 @@ export function styledStylesheets(options: StyledStylesheetsOptions = {}): Plugi
 
 		configureServer(_server) {
 			server = _server;
+			_server.watcher.on("unlink", (file) => {
+				cleanupCssModulesForSource(normalizePath(file));
+			});
 		},
 
 		resolveId(id) {
@@ -70,7 +73,7 @@ export function styledStylesheets(options: StyledStylesheetsOptions = {}): Plugi
 		},
 
 		transform(code, rawId) {
-			const id = rawId.split("?")[0];
+			const id = normalizePath(rawId.split("?")[0]);
 			if (/node_modules/.test(id)) return;
 			if (!/\.[cm]?[jt]sx?$/.test(id)) return;
 			if (!code.includes("stylesheet")) {

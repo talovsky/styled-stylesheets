@@ -25,8 +25,37 @@ function transform(code: string, id = "test.tsx") {
 
 /** Pulls the virtual module ID out of the generated import statement */
 function extractCssId(code: string): string | null {
-	const match = code.match(/import _at\d+ from "(__styled-stylesheets:[^"]+)"/);
+	const match = code.match(/import _at\d+ from "(__styled-stylesheets:[^"?]+)/);
 	return match ? match[1] : null;
+}
+
+function extractCssIds(code: string): string[] {
+	return [...code.matchAll(/import _at\d+ from "(__styled-stylesheets:[^"?]+)/g)].map((match) => match[1]);
+}
+
+function makeServer() {
+	const handlers = new Map<string, (file: string) => void>();
+
+	return {
+		handlers,
+		server: {
+			watcher: {
+				on(event: string, handler: (file: string) => void) {
+					handlers.set(event, handler);
+					return this;
+				}
+			},
+			moduleGraph: {
+				getModulesByFile() {
+					return undefined;
+				},
+				getModuleById() {
+					return undefined;
+				},
+				invalidateModule() {}
+			}
+		}
+	};
 }
 
 describe("transform", () => {
@@ -37,7 +66,7 @@ describe("transform", () => {
     `);
 
 		expect(result).not.toBeNull();
-		expect(result!.code).toMatch(/import _at0 from "__styled-stylesheets:.+\.module\.css"/);
+		expect(result!.code).toMatch(/import _at0 from "__styled-stylesheets:.+\.module\.css\?ss=[a-z0-9]+"/);
 		expect(result!.code).toContain("const styles = _at0");
 	});
 
@@ -61,6 +90,92 @@ describe("transform", () => {
 
 		expect(css).toContain(".button { color: blue; }");
 		expect(css).toContain(".text { font-size: 14px; }");
+	});
+
+	it("changes the virtual import URL when extracted CSS changes", () => {
+		const first = transform(`
+      import { stylesheet } from 'styled-stylesheets';
+      const styles = stylesheet\`.button { color: red; }\`;
+    `);
+		const second = transform(
+			`
+      import { stylesheet } from 'styled-stylesheets';
+      const styles = stylesheet\`.button { color: blue; }\`;
+    `,
+			"test.tsx"
+		);
+
+		expect(first.result!.code).not.toBe(second.result!.code);
+		expect(first.cssId).toBe(second.cssId);
+	});
+
+	it("removes stale virtual CSS modules when a stylesheet tag is removed", () => {
+		const plugin = styledStylesheets();
+		const ctx = makeCtx();
+		const first = (plugin.transform as Function).call(
+			ctx,
+			`
+      import { stylesheet } from 'styled-stylesheets';
+      const a = stylesheet\`.foo { color: red; }\`;
+      const b = stylesheet\`.bar { color: blue; }\`;
+    `,
+			"test.tsx"
+		);
+		const [firstCssId, staleCssId] = extractCssIds(first.code);
+
+		(plugin.transform as Function).call(
+			ctx,
+			`
+      import { stylesheet } from 'styled-stylesheets';
+      const a = stylesheet\`.foo { color: red; }\`;
+    `,
+			"test.tsx"
+		);
+
+		expect((plugin.load as Function).call(ctx, firstCssId)).toContain(".foo");
+		expect((plugin.load as Function).call(ctx, staleCssId)).toBeUndefined();
+	});
+
+	it("removes virtual CSS modules when styled-stylesheets is no longer used", () => {
+		const plugin = styledStylesheets();
+		const ctx = makeCtx();
+		const first = (plugin.transform as Function).call(
+			ctx,
+			`
+      import { stylesheet } from 'styled-stylesheets';
+      const styles = stylesheet\`.foo { color: red; }\`;
+    `,
+			"test.tsx"
+		);
+		const cssId = extractCssId(first.code);
+
+		const second = (plugin.transform as Function).call(ctx, "const styles = { foo: 'foo' };", "test.tsx");
+
+		expect(second).toBeUndefined();
+		expect((plugin.load as Function).call(ctx, cssId)).toBeUndefined();
+	});
+
+	it("removes virtual CSS modules when the source file is deleted", () => {
+		const plugin = styledStylesheets();
+		const ctx = makeCtx();
+		const { server, handlers } = makeServer();
+		(plugin.configureServer as Function)(server);
+
+		const first = (plugin.transform as Function).call(
+			ctx,
+			`
+      import { stylesheet } from 'styled-stylesheets';
+      const styles = stylesheet\`.foo { color: red; }\`;
+    `,
+			"/project/src/test.tsx"
+		);
+		const cssId = extractCssId(first.code);
+
+		expect((plugin.load as Function).call(ctx, cssId)).toContain(".foo");
+
+		handlers.get("unlink")?.("/project/src/test.tsx");
+
+		expect((plugin.load as Function).call(ctx, cssId)).toBeUndefined();
 	});
 
 	it("strips line comments from extracted CSS", () => {
