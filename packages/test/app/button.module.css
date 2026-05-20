@@ -1,0 +1,19 @@
+.btn_primary {
+	position: relative;
+	display: block;
+	grid-template-columns: 1fr 1fr;
+	background: red;
+}
+
+
+.btn_secondary {
+	background-color: green;
+}
+
+.btn {
+	background-color: red;
+
+	& .btn_primary {
+		background-color: blue;
+	}
+}

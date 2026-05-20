@@ -145,7 +145,7 @@ export function styledStylesheets(options: StyledStylesheetsOptions = {}): Plugi
 interface ImportInfo {
 	start: number;
 	end: number;
-	specifiers: Map<string, "default" | "stylesheet">;
+	specifiers: Map<string, "css" | "default" | "stylesheet">;
 }
 
 interface StylesheetTag {
@@ -158,7 +158,7 @@ interface StylesheetTag {
 function findStyledStylesheetsImport(sourceFile: ts.SourceFile, importSource: string): ImportInfo | null {
 	for (const node of sourceFile.statements) {
 		if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === importSource) {
-			const specifiers = new Map<string, "default" | "stylesheet">();
+			const specifiers = new Map<string, "css" | "default" | "stylesheet">();
 			if (node.importClause?.name) {
 				specifiers.set(node.importClause.name.text, "default");
 			}
@@ -168,8 +168,8 @@ function findStyledStylesheetsImport(sourceFile: ts.SourceFile, importSource: st
 				for (const specifier of namedBindings.elements) {
 					if (!specifier.isTypeOnly) {
 						const imported = (specifier.propertyName ?? specifier.name).text;
-						if (imported === "stylesheet") {
-							specifiers.set(specifier.name.text, "stylesheet");
+						if (imported === "stylesheet" || imported === "css") {
+							specifiers.set(specifier.name.text, imported);
 						}
 					}
 				}
@@ -185,7 +185,7 @@ function findStyledStylesheetsImport(sourceFile: ts.SourceFile, importSource: st
 	return null;
 }
 
-function collectLocalNames(specifiers: Map<string, "default" | "stylesheet">): Set<string> {
+function collectLocalNames(specifiers: Map<string, "css" | "default" | "stylesheet">): Set<string> {
 	return new Set(specifiers.keys());
 }
 

@@ -237,6 +237,16 @@ describe("transform", () => {
 		expect(result!.code).toContain("_at0");
 	});
 
+	it("supports css named import", () => {
+		const { result } = transform(`
+      import { css } from 'styled-stylesheets';
+      const styles = css\`.foo { color: red; }\`;
+    `);
+
+		expect(result).not.toBeNull();
+		expect(result!.code).toContain("_at0");
+	});
+
 	it("throws on interpolations", () => {
 		expect(() =>
 			transform(`

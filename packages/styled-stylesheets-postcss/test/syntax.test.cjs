@@ -24,6 +24,17 @@ test("ignores non-stylesheet tagged templates", () => {
 	assert.equal(document.nodes.length, 0);
 });
 
+test("parses real CSS files as regular CSS", () => {
+	const root = syntax.parse(".body { color: red; }", {
+		from: "example.css"
+	});
+
+	assert.equal(root.nodes.length, 1);
+	assert.equal(root.first.selector, ".body");
+	assert.equal(root.first.first.prop, "color");
+	assert.equal(root.first.first.value, "red");
+});
+
 test("preserves source around transformed CSS", async () => {
 	const result = await postcss([
 		root => {
@@ -60,4 +71,25 @@ test("supports stylesheet type arguments", () => {
 		line: 2,
 		column: 1
 	});
+});
+
+test("supports stylesheet imported as css", () => {
+	const document = syntax.parse(
+		"import { stylesheet as css } from 'styled-stylesheets';\nconst styles = css`.body { color: red; }`;",
+		{
+			from: "example.tsx"
+		}
+	);
+
+	assert.equal(document.nodes.length, 1);
+	assert.equal(document.first.first.selector, ".body");
+});
+
+test("supports css named import", () => {
+	const document = syntax.parse("import { css } from 'styled-stylesheets';\nconst styles = css`.body { color: red; }`;", {
+		from: "example.tsx"
+	});
+
+	assert.equal(document.nodes.length, 1);
+	assert.equal(document.first.first.selector, ".body");
 });

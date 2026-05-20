@@ -9,6 +9,10 @@
 	"devDependencies": {
 		"oxfmt": "^0.46.0",
 		"oxlint": "^1.61.0",
-		"tsgolint": "^0.0.1"
+		"tsgolint": "^0.0.1",
+		"tsx": "^4.21.0"
+	},
+	"dependencies": {
+		"classnames": "^2.5.1"
 	}
 }

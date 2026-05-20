@@ -33,6 +33,8 @@ type CssSyntaxErrorLike = Error & {
 const parse: postcss.Parser<postcss.Document> = (css, opts) => {
 	const inputCode = typeof css === "string" ? css : css.toString();
 	const options = opts ?? {};
+	if (isCssFile(options.from)) return postcss.parse(inputCode, options) as unknown as postcss.Document;
+
 	const input = new postcss.Input(inputCode, options);
 
 	const document = new postcss.Document({
@@ -71,6 +73,10 @@ const parse: postcss.Parser<postcss.Document> = (css, opts) => {
 
 	return document;
 };
+
+function isCssFile(fileName?: string): boolean {
+	return fileName !== undefined && /\.css$/i.test(fileName);
+}
 
 function parseStylesheetCss(css: string, node: StylesheetNode, options: ProcessOptions): Root {
 	try {
@@ -152,8 +158,11 @@ function parseStylesheetTemplates(inputCode: string, options: ProcessOptions): S
 		const diagnosticsSourceFile = sourceFile as ts.SourceFile & { parseDiagnostics?: unknown[] };
 		if ((diagnosticsSourceFile.parseDiagnostics?.length ?? 0) > 0) return foundNodes;
 
+		const localNames = collectStylesheetLocalNames(sourceFile);
+		if (localNames.size === 0) localNames.add("stylesheet");
+
 		function visit(node: ts.Node): void {
-			if (ts.isTaggedTemplateExpression(node) && isStylesheetTag(node.tag)) {
+			if (ts.isTaggedTemplateExpression(node) && isStylesheetTag(node.tag, localNames)) {
 				foundNodes.push(getStylesheetNode(node.template, inputCode, sourceFile));
 			}
 
@@ -166,6 +175,31 @@ function parseStylesheetTemplates(inputCode: string, options: ProcessOptions): S
 	}
 
 	return foundNodes;
+}
+
+function collectStylesheetLocalNames(sourceFile: ts.SourceFile): Set<string> {
+	const localNames = new Set<string>();
+
+	for (const node of sourceFile.statements) {
+		if (!ts.isImportDeclaration(node)) continue;
+		if (!ts.isStringLiteral(node.moduleSpecifier) || node.moduleSpecifier.text !== "styled-stylesheets") continue;
+
+		if (node.importClause?.name) localNames.add(node.importClause.name.text);
+
+		const namedBindings = node.importClause?.namedBindings;
+		if (!namedBindings || !ts.isNamedImports(namedBindings)) continue;
+
+		for (const specifier of namedBindings.elements) {
+			if (specifier.isTypeOnly) continue;
+
+			const imported = (specifier.propertyName ?? specifier.name).text;
+			if (imported === "stylesheet" || imported === "css") {
+				localNames.add(specifier.name.text);
+			}
+		}
+	}
+
+	return localNames;
 }
 
 function getStylesheetNode(
@@ -193,8 +227,8 @@ function getStylesheetNode(
 	return node;
 }
 
-function isStylesheetTag(tag: ts.LeftHandSideExpression): boolean {
-	return ts.isIdentifier(tag) && tag.text === "stylesheet";
+function isStylesheetTag(tag: ts.LeftHandSideExpression, localNames: Set<string>): boolean {
+	return ts.isIdentifier(tag) && localNames.has(tag.text);
 }
 
 function scriptKindFor(fileName?: string): ts.ScriptKind {

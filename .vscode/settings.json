@@ -4,6 +4,18 @@
 		"editor.defaultFormatter": "oxc.oxc-vscode",
 		"editor.formatOnSave": true
 	},
-	"stylelint.validate": ["css", "postcss", "typescriptreact"],
-	"stylelint.workingDirectories": [{ "directory": "packages/wyrd", "changeProcessCWD": true }]
+	"[typescriptreact]": {
+		"editor.defaultFormatter": "oxc.oxc-vscode",
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.fixAll.stylelint": "always"
+		}
+	},
+	"[css]": {
+		"editor.codeActionsOnSave": {
+			"source.fixAll.stylelint": "always"
+		}
+	},
+	"stylelint.validate": ["css", "scss", "postcss", "typescriptreact", "tsx"]
+	// "stylelint.workingDirectories": [{ "directory": "packages/wyrd", "changeProcessCWD": true }]
 }

@@ -9,4 +9,5 @@ export function stylesheet(_template: TemplateStringsArray, ..._exprs: never[]):
 	);
 }
 
+export { stylesheet as css };
 export default stylesheet;

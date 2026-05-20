@@ -6,7 +6,6 @@ import {
 	MarkdownString,
 	Range,
 	SnippetString,
-	TextEdit,
 	languages
 } from "vscode";
 import {
@@ -21,34 +20,6 @@ import { documentSelector, findEnclosingStylesheetTemplate } from "./stylesheetT
 const SNIPPET_FORMAT = 2;
 
 const cssLS = getCSSLanguageService();
-
-const HTML_TAGS = [
-	"a",
-	"article",
-	"aside",
-	"body",
-	"button",
-	"div",
-	"footer",
-	"form",
-	"h1",
-	"h2",
-	"h3",
-	"header",
-	"img",
-	"input",
-	"label",
-	"li",
-	"main",
-	"nav",
-	"ol",
-	"p",
-	"section",
-	"select",
-	"span",
-	"textarea",
-	"ul"
-];
 
 // LSP CompletionItemKind is 1-indexed; VS Code's is 0-indexed.
 function convertKind(kind: LSPKind | undefined): CompletionItemKind {
@@ -76,8 +47,7 @@ function getSelectorCompletions(content: string, cssOffset: number) {
 
 	return [
 		createRuleSnippet(".class-name", ".${1:class-name}"),
-		createRuleSnippet("#id", "#${1:id}"),
-		...HTML_TAGS.map(tag => createRuleSnippet(tag))
+		createRuleSnippet("#id", "#${1:id}")
 	];
 }
 
@@ -178,26 +148,16 @@ export function registerCompletionProvider(context: ExtensionContext) {
 							const { range, newText } = lspItem.textEdit;
 							const startOff = cssDoc.offsetAt(range.start) + template.contentStart;
 							const endOff = cssDoc.offsetAt(range.end) + template.contentStart;
-							const vsRange = new Range(document.positionAt(startOff), document.positionAt(endOff));
-
-							if (isProperty) {
-								// Our insertColonOrSemiColon command handles `: ;` — just
-								// insert the bare property name so it can detect it.
-								item.textEdit = new TextEdit(vsRange, label);
-							} else if (isSnippet) {
-								item.insertText = new SnippetString(newText);
-								item.textEdit = new TextEdit(vsRange, "");
-							} else {
-								item.textEdit = new TextEdit(vsRange, newText);
-							}
+							item.range = new Range(document.positionAt(startOff), document.positionAt(endOff));
+							// insertColonOrSemiColon handles `: ;` after property names — keep
+							// the inserted text bare so it can detect them.
+							item.insertText = isProperty ? label : isSnippet ? new SnippetString(newText) : newText;
 						} else if (lspItem.insertText) {
-							if (isProperty) {
-								item.insertText = label;
-							} else if (isSnippet) {
-								item.insertText = new SnippetString(lspItem.insertText);
-							} else {
-								item.insertText = lspItem.insertText;
-							}
+							item.insertText = isProperty
+								? label
+								: isSnippet
+									? new SnippetString(lspItem.insertText)
+									: lspItem.insertText;
 						}
 
 						return item;

@@ -1,10 +1,9 @@
 import { Range, type Position, type TextDocument } from "vscode";
 
-const STYLESHEET_DECLARATION_RE =
-	/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*stylesheet(?:\s*<[^`>]*(?:>[^`<]*)?>)?\s*`([\s\S]*?)`/g;
+import { escapeRegExp, findStylesheetTemplates } from "./stylesheetTemplate";
+
 const JS_IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
-const JS_IDENTIFIER_PART_RE = /[A-Za-z0-9_$]/;
-const JS_IDENTIFIER_BOUNDARY_RE = /[A-Za-z0-9_$]/;
+const JS_IDENTIFIER_CHAR_RE = /[A-Za-z0-9_$]/;
 const CSS_CLASS_START_RE = /[-_a-zA-Z]/;
 const CSS_CLASS_PART_RE = /[-_a-zA-Z0-9]/;
 
@@ -51,18 +50,12 @@ export function getStylesheetPropertyReference(
 }
 
 export function getClassesForReference(document: TextDocument, referenceName: string) {
-	const text = document.getText();
 	const classes = new Map<string, StylesheetClass>();
-	let declaration: RegExpExecArray | null;
 
-	STYLESHEET_DECLARATION_RE.lastIndex = 0;
-	while ((declaration = STYLESHEET_DECLARATION_RE.exec(text)) !== null) {
-		if (declaration[1] !== referenceName) continue;
+	for (const declaration of getStylesheetDeclarations(document)) {
+		if (declaration.referenceName !== referenceName) continue;
 
-		const css = declaration[2];
-		const contentStart = declaration.index + declaration[0].indexOf("`") + 1;
-
-		for (const className of findClassNames(document, css, contentStart)) {
+		for (const className of findClassNames(document, declaration.css, declaration.contentStart)) {
 			if (!JS_IDENTIFIER_RE.test(className.property) || classes.has(className.property)) continue;
 			classes.set(className.property, className);
 		}
@@ -95,6 +88,21 @@ export function getStylesheetClassAtPosition(
 	return null;
 }
 
+export function getStylesheetSymbolAtPosition(
+	document: TextDocument,
+	position: Position
+): StylesheetClassReference | null {
+	const propertyReference = getStylesheetPropertyReference(document, position);
+	if (propertyReference) {
+		const className = getClassesForReference(document, propertyReference.referenceName).find(
+			item => item.property === propertyReference.propertyName
+		);
+		return className ? { referenceName: propertyReference.referenceName, className } : null;
+	}
+
+	return getStylesheetClassAtPosition(document, position);
+}
+
 export function getStylesheetPropertyReferences(document: TextDocument, referenceName: string, propertyName: string) {
 	const text = document.getText();
 	const ranges: Range[] = [];
@@ -105,7 +113,7 @@ export function getStylesheetPropertyReferences(document: TextDocument, referenc
 
 	while ((match = propertyReferenceRe.exec(text)) !== null) {
 		const previousChar = text[match.index - 1];
-		if (JS_IDENTIFIER_BOUNDARY_RE.test(previousChar ?? "")) continue;
+		if (JS_IDENTIFIER_CHAR_RE.test(previousChar ?? "")) continue;
 
 		const propertyStart = match.index + match[0].lastIndexOf(match[1]);
 		ranges.push(new Range(document.positionAt(propertyStart), document.positionAt(propertyStart + match[1].length)));
@@ -120,20 +128,16 @@ type StylesheetDeclaration = {
 	contentStart: number;
 };
 
-function getStylesheetDeclarations(document: TextDocument) {
-	const text = document.getText();
+function getStylesheetDeclarations(document: TextDocument): StylesheetDeclaration[] {
 	const declarations: StylesheetDeclaration[] = [];
-	let declaration: RegExpExecArray | null;
-
-	STYLESHEET_DECLARATION_RE.lastIndex = 0;
-	while ((declaration = STYLESHEET_DECLARATION_RE.exec(text)) !== null) {
+	for (const template of findStylesheetTemplates(document)) {
+		if (!template.bindingName) continue;
 		declarations.push({
-			referenceName: declaration[1],
-			css: declaration[2],
-			contentStart: declaration.index + declaration[0].indexOf("`") + 1
+			referenceName: template.bindingName,
+			css: template.content,
+			contentStart: template.contentStart
 		});
 	}
-
 	return declarations;
 }
 
@@ -221,17 +225,9 @@ export function toKebabCase(propertyName: string) {
 
 export function isValidClassName(className: string) {
 	if (!isClassStart(className[0])) return false;
-	return [...className.slice(1)].every(char => CSS_CLASS_PART_RE.test(char));
+	return Array.from(className.slice(1)).every(char => CSS_CLASS_PART_RE.test(char));
 }
 
 export function isValidPropertyName(propertyName: string) {
 	return JS_IDENTIFIER_RE.test(propertyName);
-}
-
-export function isIdentifierPart(char: string | undefined) {
-	return char ? JS_IDENTIFIER_PART_RE.test(char) : false;
-}
-
-function escapeRegExp(value: string) {
-	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

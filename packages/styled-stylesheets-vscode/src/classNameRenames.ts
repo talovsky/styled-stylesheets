@@ -2,10 +2,9 @@ import { ExtensionContext, Range, WorkspaceEdit, languages, type Position, type 
 
 import {
 	getClassReferencesForReference,
-	getClassesForReference,
-	getStylesheetClassAtPosition,
 	getStylesheetPropertyReference,
 	getStylesheetPropertyReferences,
+	getStylesheetSymbolAtPosition,
 	isValidClassName,
 	isValidPropertyName,
 	toCamelCase,
@@ -15,7 +14,7 @@ import {
 import { documentSelector } from "./stylesheetTemplate";
 
 type ClassRenameTarget = StylesheetClassReference & {
-	origin: "stylesheet" | "reference";
+	onProperty: boolean;
 	renameRange: Range;
 };
 
@@ -33,7 +32,7 @@ export function registerClassNameRenameProvider(context: ExtensionContext) {
 
 				return {
 					range: target.renameRange,
-					placeholder: target.origin === "stylesheet" ? target.className.original : target.className.property
+					placeholder: target.onProperty ? target.className.property : target.className.original
 				};
 			},
 
@@ -68,27 +67,13 @@ export function registerClassNameRenameProvider(context: ExtensionContext) {
 
 function getRenameTarget(document: TextDocument, position: Position): ClassRenameTarget | null {
 	const propertyReference = getStylesheetPropertyReference(document, position);
-	if (propertyReference) {
-		const className = getClassesForReference(document, propertyReference.referenceName).find(
-			item => item.property === propertyReference.propertyName
-		);
-		if (!className) return null;
-
-		return {
-			referenceName: propertyReference.referenceName,
-			className,
-			origin: "reference",
-			renameRange: propertyReference.propertyRange
-		};
-	}
-
-	const classReference = getStylesheetClassAtPosition(document, position);
-	if (!classReference) return null;
+	const target = getStylesheetSymbolAtPosition(document, position);
+	if (!target) return null;
 
 	return {
-		...classReference,
-		origin: "stylesheet",
-		renameRange: classReference.className.range
+		...target,
+		onProperty: propertyReference != null,
+		renameRange: propertyReference?.propertyRange ?? target.className.range
 	};
 }
 
